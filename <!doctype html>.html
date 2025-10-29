@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RIVER Pts vs Dutch Auction — Vision</title>
+  <style>
+    :root{--bg:#0f141a;--panel:#151b23;--text:#e6edf3;--muted:#9aa7b3;--accent:#4da3ff}
+    *{box-sizing:border-box;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}
+    body{margin:0;background:var(--bg);color:var(--text)}
+    .wrap{max-width:960px;margin:32px auto;padding:0 20px;position:relative}
+
+    /* ===== 헤더: 제목 + 버튼들(가로 병렬) ===== */
+    .header-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+    h1{font-size:24px;margin:0;font-weight:800;color:var(--text)}
+    .right-buttons{display:flex;gap:10px;align-items:center}
+
+    /* 커피 버튼 + 툴팁 */
+    .tip-wrap{position:relative;display:inline-block}
+    .btn-coffee{
+      background:linear-gradient(135deg,#ffd18d,#ffb74d);
+      color:#2b1900;border:0;border-radius:999px;
+      padding:10px 14px;font-weight:800;
+      box-shadow:0 6px 14px rgba(255,183,77,.22);cursor:pointer;transition:.15s
+    }
+    .btn-coffee:hover{transform:translateY(-1px)}
+    .tip{
+      position:absolute;top:calc(100% + 6px);right:0;min-width:300px;max-width:80vw;
+      background:var(--panel);border:1px solid #2b3441;border-radius:12px;
+      padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.35);
+      opacity:0;transform:translateY(-4px);pointer-events:none;transition:.18s;z-index:10
+    }
+    .tip:before{
+      content:"";position:absolute;top:-7px;right:20px;width:14px;height:14px;
+      background:var(--panel);border-left:1px solid #2b3441;border-top:1px solid #2b3441;transform:rotate(45deg)
+    }
+    .tip-row{display:flex;align-items:center;gap:8px;white-space:nowrap}
+    .tip .muted{font-size:12px;color:var(--muted)}
+    .tip code{
+      font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;
+      background:#0d1218;border:1px solid #1f2937;border-radius:8px;padding:6px 8px;color:var(--text)
+    }
+    .tip .copy{
+      margin-left:auto;background:#1d2632;border:1px solid #2b3441;color:var(--text);
+      border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer
+    }
+    .tip-wrap:hover .tip,.tip-wrap.open .tip{opacity:1;transform:translateY(0);pointer-events:auto}
+    @media (max-width:520px){.tip{min-width:260px}}
+
+    /* X / Telegram 버튼(브랜드 컬러) */
+    .icon-btn{
+      display:inline-flex;align-items:center;justify-content:center;gap:6px;
+      padding:0 14px;height:40px;border-radius:999px;text-decoration:none;
+      font-size:14px;font-weight:600;color:#fff;box-shadow:0 6px 14px rgba(0,0,0,.25);transition:.15s
+    }
+    .icon-btn:hover{transform:translateY(-1px);opacity:.95}
+    .icon-btn svg{width:18px;height:18px;fill:currentColor}
+    .icon-btn.x{background:#000;border:1px solid #111}
+    .icon-btn.tg{background:#229ED9;border:1px solid #229ED9}
+
+    /* 카드/입력/표시 */
+    .card{background:var(--panel);border:1px solid #1f2937;border-radius:16px;padding:20px;margin-bottom:16px}
+    .muted{color:var(--muted);font-size:13px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    @media (max-width:760px){.grid,.grid-3{grid-template-columns:1fr}}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    input[type="text"]{width:100%;padding:12px;border-radius:12px;border:1px solid #2b3441;background:#0d1218;color:var(--text)}
+    button{background:var(--accent);color:#031225;border:0;border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer;transition:0.2s}
+    button:hover{opacity:0.9}
+    button.ghost{background:transparent;border:1px solid #334155;color:var(--text)}
+
+    .kpi{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}
+    .kpi .box{background:#0d1218;border:1px solid #1f2937;border-radius:12px;padding:14px}
+    .kpi .val{font-size:22px;font-weight:900}
+    .kpi .sub{font-size:12px;color:var(--muted);margin-top:4px}
+    .big{font-size:28px;font-weight:900}
+
+    /* 가격 그래프 */
+    .chart-area{display:grid;grid-template-columns:2fr 3fr;gap:12px}
+    @media (max-width:760px){.chart-area{grid-template-columns:1fr}}
+    .ratio-box{background:#0d1218;border:1px solid #1f2937;border-radius:12px;padding:14px}
+    .ratio-num{font-size:18px;font-weight:800}
+    .ratio-chart-wrap{max-width:100%;overflow-x:auto;padding-bottom:6px}
+    #ratioChart{width:720px;height:280px;display:block;background:#0d1218;border:1px solid #1f2937;border-radius:12px}
+    .legend{display:flex;gap:14px;justify-content:flex-end;align-items:center;font-size:12px;color:var(--muted);margin-top:6px}
+    .legend-item{display:flex;align-items:center;gap:6px}
+    .legend-color{width:16px;height:8px;border-radius:3px}
+    .legend-color.green{background:#22c55e}
+    .legend-color.blue{background:#4da3ff}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- 헤더 -->
+    <div class="header-bar">
+      <h1>RIVER Pts vs Dutch Auction</h1>
+      <div class="right-buttons">
+        <!-- 커피 쏘기 -->
+        <div class="tip-wrap" id="coffeeWrap" aria-live="polite">
+          <button class="btn-coffee" id="coffeeBtn" aria-haspopup="true" aria-expanded="false">☕︎ Vision에게 커피 쏘기</button>
+          <div class="tip" id="coffeeTip" role="tooltip">
+            <div class="tip-row">
+              <span class="muted">지갑 주소</span>
+              <code id="walletAddr">0xYourWalletAddressHere</code>
+              <button class="copy" id="copyBtn" title="주소 복사">복사</button>
+            </div>
+          </div>
+        </div>
+        <!-- X -->
+        <a class="icon-btn x" href="https://x.com/@Vision_Crypt0" target="_blank" rel="noopener" aria-label="X로 이동">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2H21l-6.563 7.5L22 22h-6.756l-4.74-6.21L4.9 22H2l7.07-8.08L2 2h6.756l4.4 5.777L18.244 2Zm-2.376 18h2.073L8.214 4H6.142l9.726 16Z"/></svg>
+          X
+        </a>
+        <!-- Telegram -->
+        <a class="icon-btn tg" href="https://t.me/kartrider99" target="_blank" rel="noopener" aria-label="텔레그램으로 이동">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.03 15.22 8.86 19c.35 0 .5-.15.69-.33l1.66-1.6 3.44 2.52c.63.35 1.08.17 1.24-.58l2.25-10.57h.01c.2-.96-.35-1.34-.97-1.1L3.6 10.29c-.93.36-.92.88-.16 1.11l3.6 1.12 8.36-5.29c.39-.25.74-.11.45.16"/></svg>
+          Telegram
+        </a>
+      </div>
+    </div>
+
+    <!-- 상단 데이터 -->
+    <div class="card">
+      <div class="grid-3">
+        <div>
+          <label>KRW / USDT (Upbit 자동 · 수정 가능)</label>
+          <input id="krwUsdt" type="text" placeholder="예: 1350" />
+          <div class="muted" id="krwUsdtOut">Upbit - ₩/USDT</div>
+        </div>
+        <div>
+          <label>BNB / USDT (Binance 자동)</label>
+          <input id="bnbUsdt" type="text" placeholder="예: 530" />
+          <div class="muted" id="bnbUsdtOut">Binance - USDT/BNB</div>
+        </div>
+        <div>
+          <label>데이터</label>
+          <div style="display:flex;gap:8px">
+            <button id="refreshBtn">실시간 불러오기</button>
+            <button class="ghost" id="clearBtn">초기화</button>
+          </div>
+          <div class="muted" id="lastUpdated">마지막 업데이트: -</div>
+        </div>
+      </div>
+
+      <div class="kpi">
+        <div class="box">
+          <div class="muted">1 RIVER Pts (Gecko)</div>
+          <div class="val" id="ptsUsd">-</div>
+          <div class="sub" id="ptsKrw">- 원</div>
+        </div>
+        <div class="box">
+          <div class="muted">RIVER (옥션 현재가)</div>
+          <div class="val" id="auctionUsd">-</div>
+          <div class="sub" id="auctionBnb">- BNB</div>
+        </div>
+        <div class="box">
+          <div class="muted">비교 결과</div>
+          <div class="val" id="compareNow">-</div>
+          <div class="sub" id="breakevenInfo">-</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 가격 비교 그래프 -->
+    <div class="card">
+      <h3 style="margin-top:0">가격 비교 & 손익분기</h3>
+      <div class="chart-area">
+        <div class="ratio-box">
+          <div class="muted">옥션 진행 경과</div>
+          <div class="ratio-num" id="elapsedInfo">-</div>
+          <div class="muted" style="margin-top:8px">
+            * 초록선: 현재 Pts 가격(USD) / 파란선: 옥션 RIVER 가격(USD)<br>
+            * 교차 시점이 손익분기입니다.
+          </div>
+        </div>
+        <div>
+          <div class="ratio-chart-wrap">
+            <svg id="ratioChart" aria-label="가격 비교 차트"></svg>
+          </div>
+          <div class="legend">
+            <div class="legend-item"><div class="legend-color green"></div>Pts 가격(USD)</div>
+            <div class="legend-item"><div class="legend-color blue"></div>옥션 RIVER 가격(USD)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="muted">RIVER Pts vs Dutch Auction — Vision</p>
+  </div>
+
+  <script>
+    /* ====== 환경설정: 옥션 시작 시각 (KST, UTC+9) ======
+       필요 시 이 줄만 날짜/시간 수정하세요. 예) 2025-10-29 23:00 KST */
+    const AUCTION_START_LOCAL = '2025-10-29T23:00:00+09:00';
+
+    /* ====== API ====== */
+    const UPBIT_URL   = "https://api.upbit.com/v1/ticker?markets=KRW-USDT";
+    const BINANCE_URL = "https://api.binance.com/api/v3/ticker/price?symbol=BNBUSDT";
+    const GECKO_TOKEN_URL = (addr)=>`https://api.geckoterminal.com/api/v2/networks/bsc/tokens/${addr}`;
+    const TOKEN_RPTS  = "0xfc6be825925b7a83d131e33b46efef9084f0e014"; // RIVERPTS(BSC)
+
+    /* ====== 상태 ====== */
+    const state = { krwPerUSDT:null, bnbPerUSDT:null, ptsUsd:null };
+
+    /* ====== DOM ====== */
+    const $krwUsdt = document.getElementById('krwUsdt');
+    const $bnbUsdt = document.getElementById('bnbUsdt');
+    const $krwUsdtOut = document.getElementById('krwUsdtOut');
+    const $bnbUsdtOut = document.getElementById('bnbUsdtOut');
+    const $refreshBtn = document.getElementById('refreshBtn');
+    const $clearBtn = document.getElementById('clearBtn');
+    const $lastUpdated = document.getElementById('lastUpdated');
+
+    const $ptsUsd = document.getElementById('ptsUsd');
+    const $ptsKrw = document.getElementById('ptsKrw');
+    const $auctionUsd = document.getElementById('auctionUsd');
+    const $auctionBnb = document.getElementById('auctionBnb');
+    const $compareNow = document.getElementById('compareNow');
+    const $breakevenInfo = document.getElementById('breakevenInfo');
+    const $elapsedInfo = document.getElementById('elapsedInfo');
+    const $svg = document.getElementById('ratioChart');
+
+    const fmt=(n,d=6)=>isNaN(n)?"-":Number(n).toLocaleString('ko-KR',{maximumFractionDigits:d});
+    const nowStr=()=>new Date().toLocaleString('ko-KR');
+
+    /* ====== 더치옥션 가격(음수 기울기 2구간) ====== */
+    // 0~4h: 0.0001 → 0.000015 (slope = -(0.000085/4))
+    // 4~48h: 0.000015 → 0.000001 (slope = -(0.000014/44))
+    function auctionPriceBNB(hours){
+      const t = Math.max(0, Math.min(48, +hours || 0));
+      const p0 = 0.0001;
+      const p4 = 0.000015;
+      if (t <= 4) {
+        const slope1 = -(0.000085/4);
+        return p0 + slope1 * t;
+      } else {
+        const slope2 = -(0.000014/44);
+        return p4 + slope2 * (t - 4);
+      }
+    }
+
+    /* ====== 시간 계산 ====== */
+    function hoursSinceStart(){
+      const start = new Date(AUCTION_START_LOCAL).getTime();
+      const h = (Date.now() - start) / 3600000;
+      return Math.max(0, Math.min(48, h));
+    }
+
+    /* ====== Fetchers ====== */
+    async function fetchKrwPerUsdt(){
+      try{
+        const j=await fetch(UPBIT_URL,{cache:'no-store'}).then(r=>r.json());
+        const price=j?.[0]?.trade_price;
+        if(typeof price==='number'){
+          state.krwPerUSDT=price;
+          $krwUsdt.value=String(price);
+          $krwUsdtOut.textContent=`Upbit ${fmt(price,2)} ₩/USDT`;
+        }
+      }catch(e){ console.warn(e); $krwUsdtOut.textContent="Upbit 조회 실패 — 직접 입력 가능"; }
+    }
+    async function fetchBnbPerUsdt(){
+      try{
+        const j=await fetch(BINANCE_URL,{cache:'no-store'}).then(r=>r.json());
+        const price=parseFloat(j?.price);
+        if(isFinite(price)){
+          state.bnbPerUSDT=price; // USDT/BNB
+          $bnbUsdt.value=String(price);
+          $bnbUsdtOut.textContent=`Binance ${fmt(price,2)} USDT/BNB`;
+        }
+      }catch(e){ console.warn(e); $bnbUsdtOut.textContent="Binance 조회 실패 — 직접 입력 가능"; }
+    }
+    async function fetchPtsUsd(){
+      try{
+        const j=await fetch(GECKO_TOKEN_URL(TOKEN_RPTS),{cache:'no-store'}).then(r=>r.json());
+        const usd = parseFloat(j?.data?.attributes?.price_usd);
+        if(isFinite(usd)){ state.ptsUsd=usd; }
+      }catch(e){ console.warn("GeckoTerminal 실패",e); }
+    }
+
+    /* ====== 차트 그리기: 세로축=가격(USD) ====== */
+    function drawPriceChart(ptsUsdLine, bnbUsdt){
+      const W=720,H=280,p=30,x0=p,y0=H-p,x1=W-p,y1=p;
+      // 데이터 범위 산정
+      const prices=[];
+      for(let t=0;t<=48;t++){
+        const usd=auctionPriceBNB(t)*(bnbUsdt||0);
+        if(isFinite(usd)) prices.push(usd);
+      }
+      if(ptsUsdLine>0) prices.push(ptsUsdLine);
+      let minY=Math.min(...prices), maxY=Math.max(...prices);
+      if(!isFinite(minY)||!isFinite(maxY)){minY=0;maxY=1;}
+      minY*=0.95; maxY*=1.05;
+
+      const X=t=>x0+(t/48)*(x1-x0);
+      const Y=v=>y0-((v-minY)/(maxY-minY))*(y0-y1);
+
+      $svg.setAttribute('width',W);
+      $svg.setAttribute('height',H);
+      $svg.removeAttribute('viewBox');
+      $svg.innerHTML='';
+
+      // grid X
+      for(let t=0;t<=48;t+=6){
+        const x=X(t);
+        $svg.insertAdjacentHTML('beforeend',`<line x1="${x}" y1="${y0}" x2="${x}" y2="${y1}" stroke="rgba(255,255,255,.06)"/>`);
+        $svg.insertAdjacentHTML('beforeend',`<text x="${x}" y="${y0+14}" fill="#9aa7b3" font-size="10" text-anchor="middle">${t}</text>`);
+      }
+      // grid Y
+      const ticks=4;
+      for(let i=0;i<=ticks;i++){
+        const v=minY+(i/ticks)*(maxY-minY), y=Y(v);
+        $svg.insertAdjacentHTML('beforeend',`<line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" stroke="rgba(255,255,255,.06)"/>`);
+        $svg.insertAdjacentHTML('beforeend',`<text x="${x0-6}" y="${y+4}" fill="#9aa7b3" font-size="10" text-anchor="end">${v.toFixed(6)}</text>`);
+      }
+
+      // 파란선: 옥션 가격(USD)
+      const pts=[];
+      for(let t=0;t<=48;t++){
+        const usd=auctionPriceBNB(t)*(bnbUsdt||0);
+        pts.push(`${X(t)},${Y(usd)}`);
+      }
+      $svg.insertAdjacentHTML('beforeend',`<polyline points="${pts.join(' ')}" fill="none" stroke="#4da3ff" stroke-width="2"/>`);
+
+      // 초록 수평선: Pts USD
+      if(ptsUsdLine>0){
+        const y=Y(ptsUsdLine);
+        $svg.insertAdjacentHTML('beforeend',`<line x1="${x0}" y1="${y}" x2="${x1}" y2="${y}" stroke="#22c55e" stroke-dasharray="6,4" stroke-width="2"/>`);
+      }
+
+      // 축
+      $svg.insertAdjacentHTML('beforeend',`<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y0}" stroke="#334155"/>`);
+      $svg.insertAdjacentHTML('beforeend',`<line x1="${x0}" y1="${y0}" x2="${x0}" y2="${y1}" stroke="#334155"/>`);
+      $svg.insertAdjacentHTML('beforeend',`<text x="${x1}" y="${y0+20}" fill="#9aa7b3" font-size="10" text-anchor="end">Hours</text>`);
+      $svg.insertAdjacentHTML('beforeend',`<text x="${x0-18}" y="${y1}" fill="#9aa7b3" font-size="10" text-anchor="start">Price (USD)</text>`);
+    }
+
+    /* ====== 교차 시점(손익분기) 근사 ====== */
+    function findCrossHour(ptsUsd, bnbUsdt){
+      if(!(ptsUsd>0 && bnbUsdt>0)) return null;
+      // 옥션 USD가 ptsUsd 이하가 되는 첫 시점
+      let last=null;
+      for(let t=0;t<=48;t+=0.05){
+        const usd=auctionPriceBNB(t)*bnbUsdt;
+        if(usd<=ptsUsd){last=t;break;}
+      }
+      return last; // null이면 48h 내 교차 없음
+    }
+
+    /* ====== 렌더 ====== */
+    function render(){
+      // 수동 입력 반영 가능
+      const krw = Number($krwUsdt.value)||state.krwPerUSDT||0;
+      const bnb = Number($bnbUsdt.value)||state.bnbPerUSDT||0;
+      const pts = state.ptsUsd||0;
+
+      // KPI: Pts
+      if(pts>0){
+        $ptsUsd.textContent = `${fmt(pts,6)} USD`;
+        $ptsKrw.textContent = `${fmt(pts*krw,0)} 원`;
+      }else{
+        $ptsUsd.textContent = '-';
+        $ptsKrw.textContent = '- 원';
+      }
+
+      // 옥션 현재가
+      const t = hoursSinceStart();
+      const priceBNB = auctionPriceBNB(t);
+      const priceUSD = priceBNB * bnb;
+      $elapsedInfo.textContent = `경과: ${t.toFixed(2)} h`;
+      $auctionUsd.textContent = isFinite(priceUSD) ? `${fmt(priceUSD,6)} USD` : '-';
+      $auctionBnb.textContent = isFinite(priceBNB) ? `${fmt(priceBNB,9)} BNB` : '-';
+
+      // 비교/추천
+      if(pts>0 && priceUSD>0){
+        const diff = (priceUSD - pts);
+        const pct = diff/pts*100;
+        if (diff < 0){
+          $compareNow.innerHTML = `옥션이 더 쌈 <span style="color:#86efac">(${fmt(-pct,2)}%)</span>`;
+        }else if (diff > 0){
+          $compareNow.innerHTML = `Pts가 더 쌈 <span style="color:#86efac">(${fmt(pct,2)}%)</span>`;
+        }else{
+          $compareNow.textContent = '가격 동일';
+        }
+      }else{
+        $compareNow.textContent = '—';
+      }
+
+      const cross = findCrossHour(pts, bnb);
+      if (cross==null){
+        $breakevenInfo.textContent = '손익분기: 48시간 내 교차 없음';
+      } else {
+        const remain = Math.max(0, cross - t);
+        $breakevenInfo.textContent = `손익분기: 약 ${cross.toFixed(2)} h (남은 시간 ${remain.toFixed(2)} h)`;
+      }
+
+      drawPriceChart(pts, bnb);
+    }
+
+    async function refreshAll(){
+      $lastUpdated.textContent="업데이트 중…";
+      await Promise.all([fetchKrwPerUsdt(), fetchBnbPerUsdt(), fetchPtsUsd()]);
+      $lastUpdated.textContent="마지막 업데이트: "+nowStr();
+      render();
+    }
+
+    // 초기 & 이벤트
+    $refreshBtn.addEventListener('click', refreshAll);
+    $clearBtn.addEventListener('click', ()=>{
+      $krwUsdt.value=""; $bnbUsdt.value="";
+      $krwUsdtOut.textContent="Upbit - ₩/USDT";
+      $bnbUsdtOut.textContent="Binance - USDT/BNB";
+      render();
+    });
+    [$krwUsdt,$bnbUsdt].forEach($el=>{
+      $el.addEventListener('input', render);
+      $el.addEventListener('change', render);
+    });
+
+    (async()=>{ await refreshAll(); })();
+  </script>
+
+  <!-- ☕︎ 커피 버튼: 호버 끊김 방지 + 복사 -->
+  <script>
+    const WALLET_ADDRESS = "0x6D4dA73e9780FaCe848305961e49D19d310239d1";
+    const coffeeWrap = document.getElementById("coffeeWrap");
+    const coffeeBtn  = document.getElementById("coffeeBtn");
+    const walletAddr = document.getElementById("walletAddr");
+    const copyBtn    = document.getElementById("copyBtn");
+    walletAddr.textContent = WALLET_ADDRESS;
+
+    let tipOpen=false, closeTimer=null;
+    function openTip(){ clearTimeout(closeTimer); tipOpen=true; coffeeWrap.classList.add("open"); coffeeBtn.setAttribute("aria-expanded","true"); }
+    function closeTip(){ closeTimer=setTimeout(()=>{ tipOpen=false; coffeeWrap.classList.remove("open"); coffeeBtn.setAttribute("aria-expanded","false"); },120); }
+
+    coffeeWrap.addEventListener("mouseenter", openTip);
+    coffeeWrap.addEventListener("mouseleave", closeTip);
+    coffeeBtn.addEventListener("click", (e)=>{ e.preventDefault(); tipOpen?closeTip():openTip(); });
+    document.addEventListener("click", (e)=>{ if(!coffeeWrap.contains(e.target) && tipOpen) closeTip(); });
+
+    copyBtn.addEventListener("click", async ()=>{
+      try{
+        await navigator.clipboard.writeText(WALLET_ADDRESS);
+        const old=copyBtn.textContent; copyBtn.textContent="복사됨!";
+        setTimeout(()=>copyBtn.textContent=old,1200);
+      }catch(e){
+        const r=document.createRange(); r.selectNodeContents(walletAddr);
+        const s=window.getSelection(); s.removeAllRanges(); s.addRange(r);
+        alert("클립보드 권한이 차단되어 주소를 선택했어요. 복사(Ctrl/Cmd+C) 해주세요.");
+      }
+    });
+  </script>
+</body>
+</html>
